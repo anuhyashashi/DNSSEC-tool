@@ -4,7 +4,6 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle, XCircle } from "lucide-react"
 import { HomeButton } from "@/components/home-button"
@@ -21,14 +20,55 @@ export default function SignatureValidationPage() {
     timeTaken?: number
   }>(null)
 
-  const validateSignature = async () => {
-    if (!dnskey || !rrsig || !rrdata) return
+  // Helper function to validate base64 format
+  const isBase64 = (str: string) => {
+    try {
+      return btoa(atob(str)) === str
+    } catch (e) {
+      return false
+    }
+  }
 
+  // Helper function to validate IP address format
+  const isValidIP = (str: string) => {
+    const regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+    return regex.test(str)
+  }
+
+  const validateSignature = async () => {
+    if (!dnskey || !rrsig || !rrdata) {
+      setResult({
+        valid: false,
+        message: "All fields are required.",
+      })
+      return
+    }
+
+    if (!isBase64(dnskey) || !isBase64(rrsig)) {
+      setResult({
+        valid: false,
+        message: "DNSKEY and RRSIG must be valid base64 strings.",
+      })
+      return
+    }
+
+    if (!isValidIP(rrdata)) {
+      setResult({
+        valid: false,
+        message: "RRDATA must be a valid IP address.",
+      })
+      return
+    }
+
+    console.log("DNSKEY:", dnskey);
+    console.log("RRSIG:", rrsig);
+    console.log("RRDATA:", rrdata); 
+    
     setLoading(true)
     setResult(null)
 
     try {
-      const response = await fetch("/api/validate-signature", {
+      const response = await fetch("http://localhost:5001/validate-signature/validate-signature", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -41,9 +81,14 @@ export default function SignatureValidationPage() {
         }),
       })
 
+      if (!response.ok) {
+        throw new Error("Network response was not ok")
+      }
+
       const data = await response.json()
       setResult(data)
     } catch (error) {
+      console.error("Error:", error)
       setResult({
         valid: false,
         message: "An error occurred during validation. Please try again.",
@@ -55,23 +100,13 @@ export default function SignatureValidationPage() {
 
   const loadSampleData = () => {
     if (algorithm === "ecc") {
-      // Sample ECC DNSSEC data
-      setDnskey(
-        "example.com. 3600 IN DNSKEY 257 3 13 mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==",
-      )
-      setRrsig(
-        "example.com. 3600 IN RRSIG A 13 2 3600 20230501000000 20230401000000 12345 example.com. oJB1W6WNGv+ldvQ3WDG0MQkg5IEhjRip8WTrPYGv07h108dUKGMeDPKijVCHX3DDKdfb+v6oB9wfuh3DTJXUAfI=",
-      )
-      setRrdata("example.com. 3600 IN A 93.184.216.34")
+      setDnskey("mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==")
+      setRrsig("oJB1W6WNGv+ldvQ3WDG0MQkg5IEhjRip8WTrPYGv07h108dUKGMeDPKijVCHX3DDKdfb+v6oB9wfuh3DTJXUAfI=")
+      setRrdata("93.184.216.34")
     } else {
-      // Sample RSA DNSSEC data
-      setDnskey(
-        "example.com. 3600 IN DNSKEY 257 3 8 AwEAAagAIKlVZrpC6Ia7gEzahOR+9W29euxhJhVVLOyQbSEW0O8gcCjFFVQUTf6v58fLjwBd0YI0EzrAcQqBGCzh/RStIoO8g0NfnfL2MTJRkxoXbfDaUeVPQuYEhg37NZWAJQ9VnMVDxP/VHL496M/QZxkjf5/Efucp2gaDX6RS6CXpoY68LsvPVjR0ZSwzz1apAzvN9dlzEheX7ICJBBtuA6G3LQpzW5hOA2hzCTMjJPJ8LbqF6dsV6DoBQzgul0sGIcGOYl7OyQdXfZ57relSQageu+ipAdTTJ25AsRTAoub8ONGcLmqrAmRLKBP1dfwhYB4N7knNnulqQxA+Uk1ihz0=",
-      )
-      setRrsig(
-        "example.com. 3600 IN RRSIG A 8 2 3600 20230501000000 20230401000000 12345 example.com. UGdJ5BzS2Ky+E2EZhzAGLjXFCQCGXdV7WR5wTFRx+WN9cZtxvCRJGC9tVBQzLFkVWnPQEv5Qzn6Ks3AJiTbLxnDQDMiE+pjnEWdQWex13h1EiwdYtFSiJVl4+nxwIAqDhE5iRC0xCb/xxWy6K/PvWmMLLNzHq/LwsOKWvFfcIzI=",
-      )
-      setRrdata("example.com. 3600 IN A 93.184.216.34")
+      setDnskey("AwEAAagAIKlVZrpC6Ia7gEzahOR+9W29euxhJhVVLOyQbSEW0O8gcCjFFVQUTf6v58fLjwBd0YI0EzrAcQqBGCzh/RStIoO8g0NfnfL2MTJRkxoXbfDaUeVPQuYEhg37NZWAJQ9VnMVDxP/VHL496M/QZxkjf5/Efucp2gaDX6RS6CXpoY68LsvPVjR0ZSwzz1apAzvN9dlzEheX7ICJBBtuA6G3LQpzW5hOA2hzCTMjJPJ8LbqF6dsV6DoBQzgul0sGIcGOYl7OyQdXfZ57relSQageu+ipAdTTJ25AsRTAoub8ONGcLmqrAmRLKBP1dfwhYB4N7knNnulqQxA+Uk1ihz0=")
+      setRrsig("UGdJ5BzS2Ky+E2EZhzAGLjXFCQCGXdV7WR5wTFRx+WN9cZtxvCRJGC9tVBQzLFkVWnPQEv5Qzn6Ks3AJiTbLxnDQDMiE+pjnEWdQWex13h1EiwdYtFSiJVl4+nxwIAqDhE5iRC0xCb/xxWy6K/PvWmMLLNzHq/LwsOKWvFfcIzI=")
+      setRrdata("93.184.216.34")
     }
   }
 
@@ -133,14 +168,13 @@ export default function SignatureValidationPage() {
               </div>
 
               {result && (
-                <Alert variant={result.valid ? "default" : "destructive"}>
-                  {result.valid ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                  <AlertTitle>{result.valid ? "Signature Valid" : "Signature Invalid"}</AlertTitle>
-                  <AlertDescription>
-                    {result.message}
-                    {result.timeTaken && <div className="mt-2">Time: {result.timeTaken.toFixed(2)}ms</div>}
-                  </AlertDescription>
-                </Alert>
+                <div className="bg-gray-100 p-4 rounded-lg mt-4">
+                  <h3 className={`text-lg font-semibold ${result.valid ? "text-green-600" : "text-red-600"}`}>
+                    {result.valid ? "Signature Valid" : "Signature Invalid"}
+                  </h3>
+                  <p>{result.message}</p>
+                  {result.timeTaken && <div className="mt-2">Time: {result.timeTaken.toFixed(2)}ms</div>}
+                </div>
               )}
             </div>
           </Tabs>
@@ -156,4 +190,3 @@ export default function SignatureValidationPage() {
     </div>
   )
 }
-
