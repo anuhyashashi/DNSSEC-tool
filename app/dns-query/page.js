@@ -118,6 +118,7 @@ export default function DNSSECChecker() {
   const [domain, setDomain] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [allQueries, setAllQueries] = useState([]);  // New state for all queries
   const router = useRouter();
 
   const checkDNSSEC = async () => {
@@ -143,6 +144,23 @@ export default function DNSSECChecker() {
       }
     } catch (err) {
       setError("Failed to connect to server.");
+    }
+  };
+
+  const getAllQueries = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:5000/get-all-queries", {
+        method: "GET",
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setAllQueries(data);
+      }
+    } catch (err) {
+      setError("Failed to fetch stored queries.");
     }
   };
 
@@ -173,15 +191,162 @@ export default function DNSSECChecker() {
           </Button>
           {error && <p className="text-red-500">{error}</p>}
           {result && (
-            <p>
-              DNSSEC for <strong>{result.domain}</strong>:{" "}
-              {result.dnssec_enabled ? (
-                <span className="text-green-500">Enabled ✅</span>
-              ) : (
-                <span className="text-red-500">Not Enabled ❌</span>
+            <div className="mt-4 text-left">
+              <p>
+                <strong>DNSSEC for {result.domain}:</strong>{" "}
+                {result.dnssec_enabled ? (
+                  <span className="text-green-500">Enabled ✅</span>
+                ) : (
+                  <span className="text-red-500">Not Enabled ❌</span>
+                )}
+              </p>
+              {result.a_records && result.a_records.length > 0 && (
+                <div>
+                  <strong>A Records:</strong>
+                  <ul className="list-disc pl-5">
+                    {result.a_records.map((record, index) => (
+                      <li key={index}>{record}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
-            </p>
+              {result.aaaa_records && result.aaaa_records.length > 0 && (
+                <div>
+                  <strong>AAAA Records:</strong>
+                  <ul className="list-disc pl-5">
+                    {result.aaaa_records.map((record, index) => (
+                      <li key={index}>{record}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.rrsig_records && result.rrsig_records.length > 0 && (
+                <div>
+                  <strong>RRSIG Records:</strong>
+                  <ul className="list-disc pl-5">
+                    {result.rrsig_records.map((record, index) => (
+                      <li key={index}>{record}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.ns_records && result.ns_records.length > 0 && (
+                <div>
+                  <strong>NS Records:</strong>
+                  <ul className="list-disc pl-5">
+                    {result.ns_records.map((record, index) => (
+                      <li key={index}>{record}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.mx_records && result.mx_records.length > 0 && (
+                <div>
+                  <strong>MX Records:</strong>
+                  <ul className="list-disc pl-5">
+                    {result.mx_records.map((record, index) => (
+                      <li key={index}>{record}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.txt_records && result.txt_records.length > 0 && (
+                <div>
+                  <strong>TXT Records:</strong>
+                  <ul className="list-disc pl-5">
+                    {result.txt_records.map((record, index) => (
+                      <li key={index}>{record}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
+
+          {/* Button to fetch all stored queries */}
+          <Button onClick={getAllQueries} className="mt-4 w-full">
+            View All Stored Queries
+          </Button>
+
+          {/* Display all stored queries */}
+          {allQueries.length > 0 && (
+            <div className="mt-4 text-left">
+              <h3 className="font-semibold">All Stored Queries:</h3>
+              <ul className="list-disc pl-5">
+                {allQueries.map((query, index) => (
+                  <li key={index}>
+                    <strong>{query.domain}</strong>:{" "}
+                    {query.dnssec_enabled ? (
+                      <span className="text-green-500">Enabled ✅</span>
+                    ) : (
+                      <span className="text-red-500">Not Enabled ❌</span>
+                    )}
+                    {query.a_records && query.a_records.length > 0 && (
+                      <div>
+                        <strong>A Records:</strong>
+                        <ul className="list-disc pl-5">
+                          {query.a_records.map((record, idx) => (
+                            <li key={idx}>{record}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {query.aaaa_records && query.aaaa_records.length > 0 && (
+                      <div>
+                        <strong>AAAA Records:</strong>
+                        <ul className="list-disc pl-5">
+                          {query.aaaa_records.map((record, idx) => (
+                            <li key={idx}>{record}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {query.ns_records && query.ns_records.length > 0 && (
+                      <div>
+                        <strong>NS Records:</strong>
+                        <ul className="list-disc pl-5">
+                          {query.ns_records.map((record, idx) => (
+                            <li key={idx}>{record}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {query.mx_records && query.mx_records.length > 0 && (
+                      <div>
+                        <strong>MX Records:</strong>
+                        <ul className="list-disc pl-5">
+                          {query.mx_records.map((record, idx) => (
+                            <li key={idx}>{record}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {query.txt_records && query.txt_records.length > 0 && (
+                      <div>
+                        <strong>TXT Records:</strong>
+                        <ul className="list-disc pl-5">
+                          {query.txt_records.map((record, idx) => (
+                            <li key={idx}>{record}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {query.rrsig_records && query.rrsig_records.length > 0 && (
+                      <div>
+                        <strong>RRSIG Records:</strong>
+                        <ul className="list-disc pl-5">
+                          {query.rrsig_records.map((record, idx) => (
+                            <li key={idx}>{record}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
         </CardContent>
       </Card>
     </div>
