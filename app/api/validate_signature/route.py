@@ -1,10 +1,16 @@
 from flask import Blueprint, request, jsonify
 import time
+from pymongo import MongoClient
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.exceptions import InvalidSignature
 
 validate_signature = Blueprint('validate_signature', __name__)
+
+# Connect to MongoDB 
+client = MongoClient("mongodb://localhost:27017/")
+db = client["dns_security_tool"]  
+signature_collection = db["signature_validations"]
 
 @validate_signature.route('/validate-signature', methods=['POST'])
 def validate_dnssec_signature():
@@ -21,6 +27,25 @@ def validate_dnssec_signature():
         start_time = time.time()
         is_valid = verify_signature(dnskey, rrsig, rrdata, algorithm)
         time_taken = (time.time() - start_time) * 1000  # Convert to milliseconds
+        
+        # Prepare result
+        result = {
+            "valid": is_valid,
+            "message": "Signature is valid." if is_valid else "Signature is invalid.",
+        }
+
+        # Store the validation data in MongoDB
+        signature_data = {
+            "dnskey": dnskey,
+            "rrsig": rrsig,
+            "rrdata": rrdata,
+            "algorithm": algorithm,
+            "result": result["valid"],
+            "message": result["message"]
+        }
+
+        # Insert into MongoDB collection
+        signature_collection.insert_one(signature_data)
         
         return jsonify({
             "valid": is_valid,
